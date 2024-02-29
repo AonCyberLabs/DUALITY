@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32228.343
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DUALITY", "DUALITY\DUALITY.csproj", "{F9B9F510-7644-45BE-8D12-953721F976ED}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F9B9F510-7644-45BE-8D12-953721F976ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9B9F510-7644-45BE-8D12-953721F976ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9B9F510-7644-45BE-8D12-953721F976ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9B9F510-7644-45BE-8D12-953721F976ED}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {52F21613-7313-4A3D-8281-0CFA1ABA7416}
+	EndGlobalSection
+EndGlobal

